@@ -1,3 +1,13 @@
+---
+title: Email Triage Agent Environment
+emoji: 📧
+colorFrom: blue
+colorTo: purple
+sdk: docker
+pinned: false
+license: mit
+---
+
 # Email Triage Agent Environment
 
 An [OpenEnv](https://huggingface.co/spaces/openenv/openenv)-compatible environment for training and evaluating AI agents on **real-world email triage tasks**. Agents must classify, prioritise, and respond to emails across three difficulty levels.
