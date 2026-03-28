@@ -1,0 +1,38 @@
+name: email-triage-env
+version: "1.0.0"
+description: >
+  An OpenEnv environment for training and evaluating AI agents on real-world
+  email triage tasks. Agents must classify, prioritise, and respond to emails
+  across three difficulty levels.
+author: "hackathon-participant"
+tags:
+  - openenv
+  - email
+  - productivity
+  - nlp
+  - real-world
+tasks:
+  - name: easy
+    description: Identify and label the single urgent email in a 5-email inbox
+    max_steps: 20
+    difficulty: easy
+  - name: medium
+    description: Assign correct priorities to all 10 emails in a mixed inbox
+    max_steps: 30
+    difficulty: medium
+  - name: hard
+    description: Full triage — label, reply, and archive a 15-email inbox correctly
+    max_steps: 40
+    difficulty: hard
+observation_space:
+  type: structured
+  description: JSON object with inbox list, current email, action history, step count
+action_space:
+  type: structured
+  description: JSON object with action_type and optional email_id, label, priority, reply_text
+reward_range: [0.0, 1.0]
+endpoints:
+  reset: POST /reset
+  step: POST /step
+  state: GET /state
+  health: GET /health
