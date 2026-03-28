@@ -5,6 +5,7 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 from typing import Any, AsyncGenerator, Dict
 
+from typing import Optional
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
@@ -173,18 +174,19 @@ async def tasks() -> list[dict]:
 
 
 @app.post("/reset")
-async def reset(body: ResetRequest) -> Dict[str, Any]:
+async def reset(body: Optional[ResetRequest] = None) -> Dict[str, Any]:
     """Reset the environment and start a new episode.
 
     Args:
-        body: JSON with task_name ('easy', 'medium', or 'hard').
+        body: Optional JSON with task_name ('easy', 'medium', or 'hard'). Defaults to 'easy'.
 
     Returns:
         The initial EmailObservation as a JSON dict.
     """
     env: EmailTriageEnv = app.state.env
+    task_name = body.task_name if body else "easy"
     try:
-        obs: EmailObservation = env.reset(task_name=body.task_name)
+        obs: EmailObservation = env.reset(task_name=task_name)
     except KeyError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return obs.model_dump()
