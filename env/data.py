@@ -431,6 +431,104 @@ EMAIL_TEMPLATES: list[tuple[str, str, str, str, str]] = [
         "fyi",
         "low",
     ),
+    # ── TRICKY/AMBIGUOUS emails (challenge frontier models) ─────────────
+    (
+        "support@bankofamerica-secure.net",
+        "URGENT: Verify your account immediately",
+        (
+            "Dear Valued Customer,\n\nWe have detected unusual activity on your account. "
+            "Please click the link below to verify your identity within 24 hours or your "
+            "account will be suspended.\n\nVerify now: bankofamerica-secure.net/verify\n\n"
+            "Bank of America Security Team"
+        ),
+        "spam",  # Phishing - note suspicious domain (not bankofamerica.com)
+        "low",
+    ),
+    (
+        "ceo@competitor.com",
+        "Confidential: Acquisition interest",
+        (
+            "Hi,\n\nI hope this email finds you well. I'm reaching out because we've "
+            "been impressed with your company's growth and would like to explore a "
+            "potential acquisition. This is time-sensitive as our board meets next week.\n\n"
+            "Would you be available for a confidential call this Thursday?\n\n"
+            "Best regards,\nJames Chen, CEO"
+        ),
+        "reply-needed",  # Important but not urgent - inbound inquiry
+        "urgent",
+    ),
+    (
+        "billing@aws.amazon.com",
+        "Action required: Payment method expiring",
+        (
+            "Hello,\n\nThe credit card ending in 4242 associated with your AWS account "
+            "will expire on 06/30. To avoid service interruption, please update your "
+            "payment method in the AWS Billing Console.\n\n"
+            "Update payment: console.aws.amazon.com/billing\n\n"
+            "Amazon Web Services"
+        ),
+        "urgent",  # Legitimate - could cause production outage
+        "urgent",
+    ),
+    (
+        "newsletter@techcrunch.com",
+        "BREAKING: Major tech layoffs announced",
+        (
+            "Breaking news:\n\n• Meta announces 10,000 additional layoffs\n"
+            "• Google restructures Cloud division\n• Microsoft cuts gaming division by 15%\n\n"
+            "Read more: techcrunch.com/layoffs-2025\n\nUnsubscribe: techcrunch.com/unsub"
+        ),
+        "newsletter",  # Despite BREAKING, still just news
+        "low",
+    ),
+    (
+        "alerts@stripe.com",
+        "Payout failed: Insufficient funds in connected account",
+        (
+            "A scheduled payout of $12,450.00 to your bank account failed because the "
+            "connected Stripe account has insufficient funds.\n\n"
+            "Failed payout ID: po_1234567890\nScheduled date: Today\n\n"
+            "Please add funds or update your payout schedule.\n\n— Stripe"
+        ),
+        "urgent",  # Financial issue needing immediate action
+        "urgent",
+    ),
+    (
+        "m.johnson@hr.company.com",
+        "Re: Your performance review feedback",
+        (
+            "Hi,\n\nFollowing up on our conversation last week. I've incorporated your "
+            "self-assessment into the review document. Could you please confirm the "
+            "goals we discussed are accurately captured before I submit to leadership?\n\n"
+            "The deadline for submission is end of this week.\n\nThanks,\nMaria"
+        ),
+        "reply-needed",  # Has deadline but normal priority
+        "normal",
+    ),
+    (
+        "security@company-internal.com",
+        "Mandatory: Complete security training by Friday",
+        (
+            "Hi,\n\nAs part of our annual compliance requirements, all employees must "
+            "complete the updated security awareness training by this Friday.\n\n"
+            "This is mandatory for continued system access.\n\n"
+            "Complete training: training.company.com/security\n\n— IT Security"
+        ),
+        "fyi",  # Informational with deadline, but no reply needed
+        "normal",
+    ),
+    (
+        "founder@startup.io",
+        "Quick favor — intro to your investor?",
+        (
+            "Hey!\n\nLong time no chat. I saw you recently closed a round with Sequoia — "
+            "congrats! I'm currently raising our Series A and would love an intro to your "
+            "partner there if you're comfortable.\n\n"
+            "No pressure at all, just thought I'd ask. Coffee soon?\n\nCheers,\nAlex"
+        ),
+        "reply-needed",  # Personal request, needs response
+        "normal",
+    ),
 ]
 
 

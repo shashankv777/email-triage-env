@@ -30,11 +30,13 @@ TASK_REGISTRY: Dict[str, TaskConfig] = {
         description=(
             "Label the Urgent Email — Your inbox contains 5 emails. Exactly "
             "one of them is genuinely urgent (time-sensitive financial, legal, "
-            "or security matter). Open emails to read them, identify the urgent "
-            "one, and apply the label 'urgent' to it. Do NOT label non-urgent "
-            "emails as urgent."
+            "or security matter requiring immediate action). Open emails to read "
+            "them carefully, identify the truly urgent one, and apply the label "
+            "'urgent' to it. CAUTION: Some emails may have urgent-sounding subjects "
+            "but are actually marketing/spam. Do NOT label non-urgent emails as urgent. "
+            "Efficiency matters: fewer steps = higher score."
         ),
-        max_steps=20,
+        max_steps=15,  # Reduced from 20 for time pressure
         email_count=5,
         seed=42,
     ),
@@ -43,12 +45,14 @@ TASK_REGISTRY: Dict[str, TaskConfig] = {
         difficulty="medium",
         description=(
             "Sort and Prioritise Inbox — Your inbox contains 10 emails of "
-            "mixed types (meeting requests, support tickets, newsletters, "
-            "personal messages). Assign a priority to every email: 'urgent', "
-            "'normal', or 'low'. Your ranking will be compared against the "
-            "gold-standard ordering using Kendall-tau correlation."
+            "mixed types including meeting requests, support escalations, newsletters, "
+            "and personal messages. Some emails have misleading subjects (e.g., "
+            "'URGENT' marketing emails). Assign a priority to EVERY email: 'urgent', "
+            "'normal', or 'low' based on actual content, not just subject lines. "
+            "Your ranking will be compared against the gold-standard ordering using "
+            "Kendall-tau correlation. Perfect correlation = 1.0, random = 0.0."
         ),
-        max_steps=30,
+        max_steps=25,  # Reduced from 30 for time pressure
         email_count=10,
         seed=123,
     ),
@@ -56,15 +60,18 @@ TASK_REGISTRY: Dict[str, TaskConfig] = {
         name="hard",
         difficulty="hard",
         description=(
-            "Triage, Reply, and Archive — Your inbox contains 15 emails "
-            "across 5 categories: urgent, reply-needed, FYI, spam, and "
-            "newsletter. You must: (1) Label every email with its correct "
-            "category, (2) Reply to all 'reply-needed' emails with a helpful "
-            "and professional response, and (3) Archive all spam and newsletter "
-            "emails. Scoring: label accuracy 40%, reply quality 40%, "
-            "archive correctness 20%."
+            "Full Inbox Triage — Your inbox contains 15 emails across 5 categories: "
+            "urgent, reply-needed, FYI, spam, and newsletter. This task requires "
+            "multi-skill execution:\n"
+            "(1) LABEL: Categorize every email correctly. Watch for phishing attempts "
+            "(check sender domains carefully) and misleading subjects.\n"
+            "(2) REPLY: Write helpful, professional responses to all 'reply-needed' "
+            "emails. Replies are graded on relevance, tone, and completeness.\n"
+            "(3) ARCHIVE: Archive all spam and newsletter emails to clean the inbox.\n"
+            "Scoring: label accuracy 40%, reply quality 40%, archive correctness 20%. "
+            "This task challenges even frontier models."
         ),
-        max_steps=40,
+        max_steps=35,  # Reduced from 40 for time pressure
         email_count=15,
         seed=256,
         grader_weights={

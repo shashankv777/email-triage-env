@@ -53,11 +53,13 @@ def grade_easy(
 ) -> EmailReward:
     """Grade the easy task: identify and label the single urgent email.
 
-    Scoring:
-        +0.1 per unique email opened (up to 0.5)
+    Scoring (improved with better partial credit):
+        +0.1 per unique email opened (up to 0.4)
+        +0.1 bonus for opening the urgent email specifically
         +0.5 for labelling the correct email as 'urgent'
-        -0.1 for each wrong email labelled 'urgent'
+        -0.15 for each wrong email labelled 'urgent' (harsher penalty)
         -0.05 per repeated action (3+ consecutive identical)
+        +0.05 efficiency bonus if done in ≤3 steps
     Final score clamped to [0.0, 1.0].
     """
     # Find the gold-urgent email id
@@ -72,7 +74,10 @@ def grade_easy(
     for entry in action_history:
         if entry.startswith("open:"):
             opened_ids.add(entry.split(":", 1)[1])
-    open_score = min(len(opened_ids) * 0.1, 0.5)
+    open_score = min(len(opened_ids) * 0.1, 0.4)
+    
+    # Bonus for opening the urgent email
+    urgent_opened_bonus = 0.1 if urgent_id and urgent_id in opened_ids else 0.0
 
     # Check labelling
     correct_label = 0.0
@@ -82,31 +87,40 @@ def grade_easy(
             if email.id == urgent_id:
                 correct_label = 0.5
             else:
-                wrong_penalty += 0.1
+                wrong_penalty += 0.15  # Harsher penalty for false positives
 
     # Loop penalty
     loop_penalty = _compute_loop_penalty(action_history)
+    
+    # Efficiency bonus for quick completion
+    efficiency_bonus = 0.05 if step_count <= 3 and correct_label > 0 else 0.0
 
-    raw = open_score + correct_label - wrong_penalty - loop_penalty
+    raw = open_score + urgent_opened_bonus + correct_label + efficiency_bonus - wrong_penalty - loop_penalty
     score = max(0.0, min(1.0, raw))
 
     breakdown = {
         "emails_opened": len(opened_ids),
         "open_score": round(open_score, 3),
+        "urgent_opened_bonus": round(urgent_opened_bonus, 3),
         "correct_label": round(correct_label, 3),
         "wrong_label_penalty": round(wrong_penalty, 3),
+        "efficiency_bonus": round(efficiency_bonus, 3),
         "loop_penalty": round(loop_penalty, 3),
         "raw_score": round(raw, 3),
     }
 
     feedback_parts: list[str] = []
     feedback_parts.append(f"Opened {len(opened_ids)} emails (+{open_score:.1f}).")
+    if urgent_opened_bonus > 0:
+        feedback_parts.append("Found and opened the urgent email (+0.1).")
     if correct_label > 0:
         feedback_parts.append("Correctly labelled the urgent email (+0.5).")
     else:
         feedback_parts.append("Did not label the correct email as urgent.")
     if wrong_penalty > 0:
         feedback_parts.append(f"Wrong 'urgent' labels applied (-{wrong_penalty:.1f}).")
+    if efficiency_bonus > 0:
+        feedback_parts.append("Efficiency bonus for quick completion (+0.05).")
     if loop_penalty > 0:
         feedback_parts.append(f"Loop penalty: -{loop_penalty:.2f}.")
 
