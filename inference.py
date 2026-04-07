@@ -24,7 +24,7 @@ from openai import OpenAI
 # ---------------------------------------------------------------------------
 
 API_BASE_URL: str = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
-MODEL_NAME: str = os.getenv("MODEL_NAME", "")
+MODEL_NAME: str = os.getenv("MODEL_NAME", "meta-llama/Llama-3.1-8B-Instruct")
 HF_TOKEN: str = os.getenv("HF_TOKEN") or os.getenv("API_KEY", "")
 
 ENV_URL: str = os.getenv("ENV_URL", "http://localhost:7860")
@@ -185,9 +185,6 @@ def run_task(
 
 def main() -> None:
     """Run inference across all three tasks and print the summary table."""
-    if not MODEL_NAME:
-        print("ERROR: MODEL_NAME environment variable is required.", file=sys.stderr)
-        sys.exit(1)
     if not HF_TOKEN:
         print("ERROR: HF_TOKEN (or API_KEY) environment variable is required.", file=sys.stderr)
         sys.exit(1)
