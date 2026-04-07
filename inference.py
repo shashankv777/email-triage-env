@@ -1,12 +1,24 @@
-"""Baseline inference script for the Email Triage OpenEnv environment.
+"""
+Inference Script for Email Triage OpenEnv Environment
+===================================
+MANDATORY
+- Before submitting, ensure the following variables are defined in your environment configuration:
+    API_BASE_URL   The API endpoint for the LLM.
+    MODEL_NAME     The model identifier to use for inference.
+    HF_TOKEN       Your Hugging Face / API key.
 
-Runs all three tasks (easy → medium → hard) using an LLM via the OpenAI
-client, communicating with the environment through its HTTP API.
+- Defaults are set only for API_BASE_URL and MODEL_NAME:
+    API_BASE_URL = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
+    MODEL_NAME = os.getenv("MODEL_NAME", "meta-llama/Llama-3.1-8B-Instruct")
 
-Credentials are read exclusively from environment variables:
-    API_BASE_URL  — LLM endpoint (default: HF router)
-    MODEL_NAME    — model identifier (default: meta-llama/Llama-3.1-8B-Instruct)
-    HF_TOKEN      — Hugging Face token (NO default - must be provided)
+- The inference script must be named `inference.py` and placed in the root directory
+- Participants must use OpenAI Client for all LLM calls using above variables
+
+STDOUT FORMAT
+- The script emits exactly three line types to stdout:
+    [START] task=<task_name> env=<benchmark> model=<model_name>
+    [STEP]  step=<n> action=<action_str> reward=<0.00> done=<true|false> error=<msg|null>
+    [END]   success=<true|false> steps=<n> score=<score> rewards=<r1,r2,...,rn>
 """
 
 from __future__ import annotations
@@ -14,7 +26,7 @@ from __future__ import annotations
 import json
 import os
 import sys
-import time
+from typing import List, Optional
 
 import httpx
 from openai import OpenAI
@@ -23,42 +35,62 @@ from openai import OpenAI
 # Configuration — all from environment variables
 # ---------------------------------------------------------------------------
 
-# Required: Defaults allowed for API_BASE_URL and MODEL_NAME
 API_BASE_URL = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
 MODEL_NAME = os.getenv("MODEL_NAME", "meta-llama/Llama-3.1-8B-Instruct")
-
-# Required: NO default value allowed for HF_TOKEN
 HF_TOKEN = os.getenv("HF_TOKEN")
 
-ENV_URL: str = os.getenv("ENV_URL", "http://localhost:7860")
-MAX_STEPS_PER_TASK: int = 8
+ENV_URL = os.getenv("ENV_URL", "http://localhost:7860")
+BENCHMARK = "email-triage-env"
+MAX_STEPS = 10
+SUCCESS_THRESHOLD = 0.5
 
-SYSTEM_PROMPT: str = (
-    "You are an expert email triage assistant. You are interacting with an email "
-    "inbox environment. On each turn you receive a JSON observation describing "
-    "the inbox state and the task you must complete.\n\n"
-    "You MUST respond with ONLY a valid JSON object matching this schema:\n"
-    "{\n"
-    '  "action_type": "open" | "label" | "prioritise" | "reply" | "archive" | "skip" | "done",\n'
-    '  "email_id": "<string or null>",\n'
-    '  "label": "<string or null>",\n'
-    '  "priority": "urgent" | "normal" | "low" | null,\n'
-    '  "reply_text": "<string or null>"\n'
-    "}\n\n"
-    "Rules:\n"
-    '- "open" requires email_id.\n'
-    '- "label" requires email_id and label.\n'
-    '- "prioritise" requires email_id and priority.\n'
-    '- "reply" requires email_id and reply_text.\n'
-    '- "archive" requires email_id.\n'
-    '- "skip" and "done" require no extra fields.\n\n'
-    "Output ONLY the JSON object. No markdown, no explanation, no extra text."
-)
+SYSTEM_PROMPT = """You are an expert email triage assistant. You are interacting with an email inbox environment. On each turn you receive a JSON observation describing the inbox state and the task you must complete.
 
+You MUST respond with ONLY a valid JSON object matching this schema:
+{
+  "action_type": "open" | "label" | "prioritise" | "reply" | "archive" | "skip" | "done",
+  "email_id": "<string or null>",
+  "label": "<string or null>",
+  "priority": "urgent" | "normal" | "low" | null,
+  "reply_text": "<string or null>"
+}
+
+Rules:
+- "open" requires email_id.
+- "label" requires email_id and label.
+- "prioritise" requires email_id and priority.
+- "reply" requires email_id and reply_text.
+- "archive" requires email_id.
+- "skip" and "done" require no extra fields.
+
+Output ONLY the JSON object. No markdown, no explanation, no extra text."""
+
+
+# ---------------------------------------------------------------------------
+# Structured logging helpers (MANDATORY FORMAT)
+# ---------------------------------------------------------------------------
+
+def log_start(task: str, env: str, model: str) -> None:
+    print(f"[START] task={task} env={env} model={model}", flush=True)
+
+
+def log_step(step: int, action: str, reward: float, done: bool, error: Optional[str]) -> None:
+    error_val = error if error else "null"
+    done_val = str(done).lower()
+    print(f"[STEP] step={step} action={action} reward={reward:.2f} done={done_val} error={error_val}", flush=True)
+
+
+def log_end(success: bool, steps: int, score: float, rewards: List[float]) -> None:
+    rewards_str = ",".join(f"{r:.2f}" for r in rewards)
+    print(f"[END] success={str(success).lower()} steps={steps} score={score:.2f} rewards={rewards_str}", flush=True)
+
+
+# ---------------------------------------------------------------------------
+# Helper functions
+# ---------------------------------------------------------------------------
 
 def build_user_prompt(observation: dict) -> str:
     """Build the user-turn prompt from the current observation."""
-    # Provide a compact representation
     task = observation.get("task_description", "")
     step = observation.get("step_count", 0)
     done = observation.get("done", False)
@@ -104,10 +136,10 @@ def build_user_prompt(observation: dict) -> str:
     return prompt
 
 
-def call_llm(client: OpenAI, messages: list[dict]) -> dict:
+def call_llm(client: OpenAI, messages: list[dict]) -> tuple[dict, Optional[str]]:
     """Call the LLM and parse the response into an action dict.
-
-    Falls back to a 'skip' action on any failure.
+    
+    Returns (action_dict, error_string or None).
     """
     try:
         response = client.chat.completions.create(
@@ -124,110 +156,105 @@ def call_llm(client: OpenAI, messages: list[dict]) -> dict:
             content = content.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
 
         action = json.loads(content)
-        # Validate action_type
         valid_types = {"open", "label", "prioritise", "reply", "archive", "skip", "done"}
         if action.get("action_type") not in valid_types:
-            raise ValueError(f"Invalid action_type: {action.get('action_type')}")
-        return action
+            return {"action_type": "skip"}, f"Invalid action_type: {action.get('action_type')}"
+        return action, None
 
     except Exception as exc:
-        print(f"  [LLM parse error: {exc}] — falling back to 'skip'")
-        return {"action_type": "skip"}
+        return {"action_type": "skip"}, str(exc)
 
 
-def run_task(
-    client: OpenAI,
-    http: httpx.Client,
-    task_name: str,
-) -> float:
+def run_task(client: OpenAI, http: httpx.Client, task_name: str) -> float:
     """Run a single task episode and return the final score."""
-    print(f"START: Running task '{task_name}'")
-
-    # Reset
-    resp = http.post(f"{ENV_URL}/reset", json={"task_name": task_name})
-    resp.raise_for_status()
-    observation = resp.json()
-
+    rewards: List[float] = []
+    steps_taken = 0
     score = 0.0
-    for step_i in range(MAX_STEPS_PER_TASK):
-        if observation.get("done", False):
-            print(f"  Step {step_i}: episode already done.")
-            break
+    success = False
 
-        # Build prompt and call LLM
-        user_prompt = build_user_prompt(observation)
-        messages = [
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": user_prompt},
-        ]
-        action = call_llm(client, messages)
-        print(f"STEP: Action {step_i + 1} - {action.get('action_type', '?')} "
-              f"(email_id={action.get('email_id', '-')})")
+    log_start(task=task_name, env=BENCHMARK, model=MODEL_NAME)
 
-        # Step
-        resp = http.post(f"{ENV_URL}/step", json=action)
+    try:
+        # Reset environment
+        resp = http.post(f"{ENV_URL}/reset", json={"task_name": task_name})
         resp.raise_for_status()
-        result = resp.json()
+        observation = resp.json()
 
-        observation = result["observation"]
-        reward = result["reward"]
-        done = result["done"]
-        score = reward.get("score", 0.0)
+        for step in range(1, MAX_STEPS + 1):
+            if observation.get("done", False):
+                break
 
-        print(f"         score={score:.4f} | feedback: {reward.get('feedback', '')[:80]}")
+            # Build prompt and call LLM
+            user_prompt = build_user_prompt(observation)
+            messages = [
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": user_prompt},
+            ]
+            action, error = call_llm(client, messages)
+            
+            # Format action string for logging
+            action_str = f"{action.get('action_type', 'unknown')}"
+            if action.get('email_id'):
+                action_str += f"({action['email_id']})"
 
-        if done:
-            print(f"  Episode done at step {step_i + 1}.")
-            break
+            # Step environment
+            resp = http.post(f"{ENV_URL}/step", json=action)
+            resp.raise_for_status()
+            result = resp.json()
 
-    print(f"END: Task '{task_name}' completed with score {score:.4f}")
+            observation = result["observation"]
+            reward_obj = result["reward"]
+            done = result["done"]
+            
+            reward = reward_obj.get("score", 0.0)
+            rewards.append(reward)
+            steps_taken = step
+            score = reward  # Final score is the last reward
+
+            log_step(step=step, action=action_str, reward=reward, done=done, error=error)
+
+            if done:
+                break
+
+        success = score >= SUCCESS_THRESHOLD
+
+    except Exception as exc:
+        log_step(step=steps_taken + 1, action="error", reward=0.0, done=True, error=str(exc))
+
+    finally:
+        log_end(success=success, steps=steps_taken, score=score, rewards=rewards)
+
     return score
 
 
 def main() -> None:
-    """Run inference across all three tasks and print the summary table."""
-    print("START: Initializing Email Triage System")
-    
+    """Run inference across all three tasks."""
     if not HF_TOKEN:
         print("ERROR: HF_TOKEN environment variable is required.", file=sys.stderr)
         sys.exit(1)
 
-    print(f"STEP: Configuration loaded - Model: {MODEL_NAME}")
-    print(f"  API base: {API_BASE_URL}")
-    print(f"  Env URL:  {ENV_URL}")
-
     client = OpenAI(base_url=API_BASE_URL, api_key=HF_TOKEN)
     http = httpx.Client(timeout=60.0)
 
-    print("STEP: Checking environment health")
+    # Check environment health
     try:
         health = http.get(f"{ENV_URL}/health")
         health.raise_for_status()
-        print(f"  Health check: {health.json()}")
     except Exception as exc:
         print(f"ERROR: Cannot reach environment at {ENV_URL}: {exc}", file=sys.stderr)
         sys.exit(1)
 
+    # Run all three tasks
     scores: dict[str, float] = {}
-    start = time.time()
-
-    print("STEP: Running inference on all tasks")
     for task_name in ["easy", "medium", "hard"]:
         scores[task_name] = run_task(client, http, task_name)
 
-    elapsed = time.time() - start
+    # Print summary
     avg = sum(scores.values()) / len(scores)
-
-    print("STEP: Computing final results")
-    print(f"  {'Task':<12}| {'Score':>8}")
-    print(f"  {'-'*12}|{'-'*9}")
+    print(f"\n--- SUMMARY ---", flush=True)
     for task_name, s in scores.items():
-        print(f"  {task_name:<12}| {s:>8.4f}")
-    print(f"  {'-'*12}|{'-'*9}")
-    print(f"  {'AVERAGE':<12}| {avg:>8.4f}")
-    print(f"  Total time: {elapsed:.1f}s")
-    
-    print("END: Email Triage Inference Completed")
+        print(f"  {task_name}: {s:.2f}", flush=True)
+    print(f"  AVERAGE: {avg:.2f}", flush=True)
 
 
 if __name__ == "__main__":
