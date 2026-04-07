@@ -5,8 +5,8 @@ client, communicating with the environment through its HTTP API.
 
 Credentials are read exclusively from environment variables:
     API_BASE_URL  — LLM endpoint (default: HF router)
-    MODEL_NAME    — model identifier
-    HF_TOKEN      — Hugging Face token (fallback: API_KEY)
+    MODEL_NAME    — model identifier (default: meta-llama/Llama-3.1-8B-Instruct)
+    HF_TOKEN      — Hugging Face token (NO default - must be provided)
 """
 
 from __future__ import annotations
@@ -23,9 +23,12 @@ from openai import OpenAI
 # Configuration — all from environment variables
 # ---------------------------------------------------------------------------
 
-API_BASE_URL: str = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
-MODEL_NAME: str = os.getenv("MODEL_NAME", "meta-llama/Llama-3.1-8B-Instruct")
-HF_TOKEN: str = os.getenv("HF_TOKEN") or os.getenv("API_KEY", "")
+# Required: Defaults allowed for API_BASE_URL and MODEL_NAME
+API_BASE_URL = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
+MODEL_NAME = os.getenv("MODEL_NAME", "meta-llama/Llama-3.1-8B-Instruct")
+
+# Required: NO default value allowed for HF_TOKEN
+HF_TOKEN = os.getenv("HF_TOKEN")
 
 ENV_URL: str = os.getenv("ENV_URL", "http://localhost:7860")
 MAX_STEPS_PER_TASK: int = 8
@@ -138,9 +141,7 @@ def run_task(
     task_name: str,
 ) -> float:
     """Run a single task episode and return the final score."""
-    print(f"\n{'='*50}")
-    print(f"  Task: {task_name}")
-    print(f"{'='*50}")
+    print(f"START: Running task '{task_name}'")
 
     # Reset
     resp = http.post(f"{ENV_URL}/reset", json={"task_name": task_name})
@@ -160,7 +161,7 @@ def run_task(
             {"role": "user", "content": user_prompt},
         ]
         action = call_llm(client, messages)
-        print(f"  Step {step_i + 1}: {action.get('action_type', '?')} "
+        print(f"STEP: Action {step_i + 1} - {action.get('action_type', '?')} "
               f"(email_id={action.get('email_id', '-')})")
 
         # Step
@@ -179,28 +180,30 @@ def run_task(
             print(f"  Episode done at step {step_i + 1}.")
             break
 
-    print(f"  Final score: {score:.4f}")
+    print(f"END: Task '{task_name}' completed with score {score:.4f}")
     return score
 
 
 def main() -> None:
     """Run inference across all three tasks and print the summary table."""
+    print("START: Initializing Email Triage System")
+    
     if not HF_TOKEN:
-        print("ERROR: HF_TOKEN (or API_KEY) environment variable is required.", file=sys.stderr)
+        print("ERROR: HF_TOKEN environment variable is required.", file=sys.stderr)
         sys.exit(1)
 
-    print(f"Model:    {MODEL_NAME}")
-    print(f"API base: {API_BASE_URL}")
-    print(f"Env URL:  {ENV_URL}")
+    print(f"STEP: Configuration loaded - Model: {MODEL_NAME}")
+    print(f"  API base: {API_BASE_URL}")
+    print(f"  Env URL:  {ENV_URL}")
 
     client = OpenAI(base_url=API_BASE_URL, api_key=HF_TOKEN)
     http = httpx.Client(timeout=60.0)
 
-    # Check health
+    print("STEP: Checking environment health")
     try:
         health = http.get(f"{ENV_URL}/health")
         health.raise_for_status()
-        print(f"Health check: {health.json()}")
+        print(f"  Health check: {health.json()}")
     except Exception as exc:
         print(f"ERROR: Cannot reach environment at {ENV_URL}: {exc}", file=sys.stderr)
         sys.exit(1)
@@ -208,22 +211,23 @@ def main() -> None:
     scores: dict[str, float] = {}
     start = time.time()
 
+    print("STEP: Running inference on all tasks")
     for task_name in ["easy", "medium", "hard"]:
         scores[task_name] = run_task(client, http, task_name)
 
     elapsed = time.time() - start
     avg = sum(scores.values()) / len(scores)
 
-    print(f"\n{'='*50}")
-    print("  RESULTS SUMMARY")
-    print(f"{'='*50}")
+    print("STEP: Computing final results")
     print(f"  {'Task':<12}| {'Score':>8}")
     print(f"  {'-'*12}|{'-'*9}")
     for task_name, s in scores.items():
         print(f"  {task_name:<12}| {s:>8.4f}")
     print(f"  {'-'*12}|{'-'*9}")
     print(f"  {'AVERAGE':<12}| {avg:>8.4f}")
-    print(f"\n  Total time: {elapsed:.1f}s")
+    print(f"  Total time: {elapsed:.1f}s")
+    
+    print("END: Email Triage Inference Completed")
 
 
 if __name__ == "__main__":
