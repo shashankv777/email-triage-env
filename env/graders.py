@@ -96,7 +96,8 @@ def grade_easy(
     efficiency_bonus = 0.05 if step_count <= 3 and correct_label > 0 else 0.0
 
     raw = open_score + urgent_opened_bonus + correct_label + efficiency_bonus - wrong_penalty - loop_penalty
-    score = max(0.0, min(1.0, raw))
+    # Ensure score is strictly between 0 and 1 (not 0.0 or 1.0)
+    score = max(0.01, min(0.99, raw))
 
     breakdown = {
         "emails_opened": len(opened_ids),
@@ -177,20 +178,21 @@ def grade_medium(
     else:
         tau = 0.0
 
-    # Scale: tau >= 0.7 → 1.0, below scaled linearly from 0
+    # Scale: tau >= 0.7 → 0.89 (leave room for bonus), below scaled linearly
     if tau >= 0.7:
-        tau_score = 1.0
+        tau_score = 0.89
     elif tau > 0.0:
-        tau_score = tau / 0.7
+        tau_score = 0.01 + (tau / 0.7) * 0.88
     else:
-        tau_score = 0.0
+        tau_score = 0.01
 
     # Bonus for completing all
-    bonus = 0.1 if prioritised_count == total else 0.0
+    bonus = 0.09 if prioritised_count == total else 0.0
 
     loop_penalty = _compute_loop_penalty(action_history)
     raw = tau_score + bonus - loop_penalty
-    score = max(0.0, min(1.0, raw))
+    # Ensure score is strictly between 0 and 1 (not 0.0 or 1.0)
+    score = max(0.01, min(0.99, raw))
 
     breakdown = {
         "kendall_tau": round(tau, 4),
@@ -393,7 +395,7 @@ def grade_hard(
         if wrongly_archived > 0:
             archive_score = max(0.0, archive_score - wrongly_archived * 0.1)
     else:
-        archive_score = 1.0
+        archive_score = 0.99
 
     # Weighted sum
     weights = {"label_accuracy": 0.4, "reply_quality": 0.4, "archive_correctness": 0.2}
@@ -405,7 +407,8 @@ def grade_hard(
 
     loop_penalty = _compute_loop_penalty(action_history)
     raw = weighted - loop_penalty
-    score = max(0.0, min(1.0, raw))
+    # Ensure score is strictly between 0 and 1 (not 0.0 or 1.0)
+    score = max(0.01, min(0.99, raw))
 
     breakdown = {
         "label_accuracy": round(label_score, 4),
