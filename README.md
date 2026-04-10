@@ -5,7 +5,13 @@ colorFrom: blue
 colorTo: purple
 sdk: docker
 pinned: false
+app_port: 7860
 license: mit
+tags:
+  - openenv
+  - email
+  - productivity
+  - nlp
 ---
 
 # Email Triage Agent Environment
