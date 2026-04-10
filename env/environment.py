@@ -32,6 +32,7 @@ class EmailTriageEnv:
         self._replies: Dict[str, str] = {}
         self._archived_ids: set[str] = set()
         self._opened_ids: set[str] = set()
+        self._last_action_error: Optional[str] = None
 
     # ------------------------------------------------------------------
     # Public API
@@ -60,6 +61,7 @@ class EmailTriageEnv:
         self._replies = {}
         self._archived_ids = set()
         self._opened_ids = set()
+        self._last_action_error = None
         reset_reply_cache()
 
         return self._observation()
@@ -86,9 +88,13 @@ class EmailTriageEnv:
         self._step_count += 1
         info: Dict[str, Any] = {}
 
+        # Clear last error at the start of each step
+        self._last_action_error = None
+
         # Validate action type
         if action.action_type not in _VALID_ACTIONS:
-            info["error"] = f"Invalid action_type '{action.action_type}'"
+            self._last_action_error = f"Invalid action_type '{action.action_type}'"
+            info["error"] = self._last_action_error
             return self._observation(), self._grade(), self._done, info
 
         # Record action for history / loop detection
@@ -98,15 +104,30 @@ class EmailTriageEnv:
         # Dispatch
         match action.action_type:
             case "open":
-                info.update(self._handle_open(action))
+                result = self._handle_open(action)
+                info.update(result)
+                if "error" in result:
+                    self._last_action_error = result["error"]
             case "label":
-                info.update(self._handle_label(action))
+                result = self._handle_label(action)
+                info.update(result)
+                if "error" in result:
+                    self._last_action_error = result["error"]
             case "prioritise":
-                info.update(self._handle_prioritise(action))
+                result = self._handle_prioritise(action)
+                info.update(result)
+                if "error" in result:
+                    self._last_action_error = result["error"]
             case "reply":
-                info.update(self._handle_reply(action))
+                result = self._handle_reply(action)
+                info.update(result)
+                if "error" in result:
+                    self._last_action_error = result["error"]
             case "archive":
-                info.update(self._handle_archive(action))
+                result = self._handle_archive(action)
+                info.update(result)
+                if "error" in result:
+                    self._last_action_error = result["error"]
             case "skip":
                 info["message"] = "Skipped."
             case "done":
@@ -247,6 +268,7 @@ class EmailTriageEnv:
             step_count=self._step_count,
             task_description=self._task.description if self._task else "",
             done=self._done,
+            last_action_error=self._last_action_error,
         )
 
     def _grade(self) -> EmailReward:

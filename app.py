@@ -58,7 +58,7 @@ class StepResponse(BaseModel):
 @app.get("/health")
 async def health() -> Dict[str, str]:
     """Health check endpoint."""
-    return {"status": "healthy"}
+    return {"status": "ok"}
 
 
 @app.get("/metadata")

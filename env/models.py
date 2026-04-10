@@ -42,6 +42,9 @@ class EmailObservation(BaseModel):
         ..., description="Natural-language description of the task"
     )
     done: bool = Field(default=False, description="Whether the episode has ended")
+    last_action_error: Optional[str] = Field(
+        default=None, description="Error message from the last action, if any"
+    )
 
 
 class EmailAction(BaseModel):

@@ -303,7 +303,7 @@ def _score_reply_with_llm(
 def _heuristic_reply_score(original_email: Email, reply_text: str) -> float:
     """Fallback heuristic for reply quality when LLM is unavailable."""
     if not reply_text or len(reply_text.strip()) < 10:
-        return 0.1
+        return 0.05
 
     score = 0.3  # base score for having some text
 
@@ -327,7 +327,7 @@ def _heuristic_reply_score(original_email: Email, reply_text: str) -> float:
     if any(g in reply_lower for g in ["hi", "hello", "dear", "thanks", "regards"]):
         score += 0.1
 
-    return max(0.0, min(1.0, score))
+    return max(0.05, min(0.95, score))
 
 
 def grade_hard(
