@@ -85,9 +85,11 @@ def log_step(step: int, action: str, reward: float, done: bool, error: Optional[
     print(f"[STEP] step={step} action={action} reward={reward:.2f} done={done_val} error={error_val}", flush=True)
 
 
-def log_end(success: bool, steps: int, rewards: List[float]) -> None:
+def log_end(success: bool, steps: int, score: float, rewards: List[float]) -> None:
+    # Clamp score to strictly between 0 and 1 for output
+    score = max(0.01, min(0.99, score))
     rewards_str = ",".join(f"{r:.2f}" for r in rewards)
-    print(f"[END] success={str(success).lower()} steps={steps} rewards={rewards_str}", flush=True)
+    print(f"[END] success={str(success).lower()} steps={steps} score={score:.2f} rewards={rewards_str}", flush=True)
 
 
 # ---------------------------------------------------------------------------
@@ -260,7 +262,7 @@ def run_task(client: OpenAI, http: httpx.Client, task_name: str) -> float:
                 or reward_obj.get("score", 0.01)
             )
             reward = float(reward)
-            # Clamp to strictly between 0 and 1
+            # Clamp to strictly between 0 and 1 (use 0.01-0.99 so :.2f never shows 0.00 or 1.00)
             reward = max(0.01, min(0.99, reward))
             rewards.append(reward)
             steps_taken = step
@@ -302,7 +304,7 @@ def run_task(client: OpenAI, http: httpx.Client, task_name: str) -> float:
         print(f"[ERROR] task={task_name} {exc}", file=sys.stderr, flush=True)
 
     finally:
-        log_end(success=success, steps=steps_taken, rewards=rewards)
+        log_end(success=success, steps=steps_taken, score=final_score, rewards=rewards)
 
     return final_score
 

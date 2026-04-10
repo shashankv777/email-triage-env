@@ -97,7 +97,10 @@ def grade_easy(
 
     raw = open_score + urgent_opened_bonus + correct_label + efficiency_bonus - wrong_penalty - loop_penalty
     # Ensure score is strictly between 0 and 1 (not 0.0 or 1.0)
+    # Clamp BEFORE and AFTER rounding to be safe
     score = max(0.01, min(0.99, raw))
+    score = round(score, 4)
+    score = max(0.01, min(0.99, score))
 
     breakdown = {
         "emails_opened": len(opened_ids),
@@ -126,8 +129,8 @@ def grade_easy(
         feedback_parts.append(f"Loop penalty: -{loop_penalty:.2f}.")
 
     return EmailReward(
-        score=round(score, 4),
-        partial_score=round(score, 4),
+        score=score,
+        partial_score=score,
         breakdown=breakdown,
         feedback=" ".join(feedback_parts),
     )
@@ -192,7 +195,10 @@ def grade_medium(
     loop_penalty = _compute_loop_penalty(action_history)
     raw = tau_score + bonus - loop_penalty
     # Ensure score is strictly between 0 and 1 (not 0.0 or 1.0)
+    # Clamp BEFORE and AFTER rounding to be safe
     score = max(0.01, min(0.99, raw))
+    score = round(score, 4)
+    score = max(0.01, min(0.99, score))
 
     breakdown = {
         "kendall_tau": round(tau, 4),
@@ -213,8 +219,8 @@ def grade_medium(
         feedback += f" Loop penalty: -{loop_penalty:.2f}."
 
     return EmailReward(
-        score=round(score, 4),
-        partial_score=round(score, 4),
+        score=score,
+        partial_score=score,
         breakdown=breakdown,
         feedback=feedback,
     )
@@ -408,7 +414,10 @@ def grade_hard(
     loop_penalty = _compute_loop_penalty(action_history)
     raw = weighted - loop_penalty
     # Ensure score is strictly between 0 and 1 (not 0.0 or 1.0)
+    # Clamp BEFORE and AFTER rounding to be safe
     score = max(0.01, min(0.99, raw))
+    score = round(score, 4)
+    score = max(0.01, min(0.99, score))
 
     breakdown = {
         "label_accuracy": round(label_score, 4),
@@ -433,8 +442,8 @@ def grade_hard(
         feedback += f" Loop penalty: -{loop_penalty:.2f}."
 
     return EmailReward(
-        score=round(score, 4),
-        partial_score=round(score, 4),
+        score=score,
+        partial_score=score,
         breakdown=breakdown,
         feedback=feedback,
     )
