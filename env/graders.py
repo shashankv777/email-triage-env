@@ -290,7 +290,7 @@ def _score_reply_with_llm(
         tone = float(scores.get("tone", 5)) / 10.0
         completeness = float(scores.get("completeness", 5)) / 10.0
         quality = (relevance + tone + completeness) / 3.0
-        quality = max(0.0, min(1.0, quality))
+        quality = max(0.01, min(0.99, quality))
 
     except Exception:
         # Heuristic fallback: score based on reply length and basic checks
@@ -353,7 +353,7 @@ def grade_hard(
             labelled_count += 1
             if gold_cat in email.labels:
                 correct_labels += 1
-    label_score = correct_labels / total if total > 0 else 0.0
+    label_score = (correct_labels / total * 0.98 + 0.01) if total > 0 else 0.01
 
     # --- Reply quality (40%) ---
     reply_needed_ids: list[str] = []
@@ -370,12 +370,12 @@ def grade_hard(
                     rs = _score_reply_with_llm(email_obj, replies[eid])
                     reply_scores.append(rs)
                 else:
-                    reply_scores.append(0.0)
+                    reply_scores.append(0.01)
             else:
-                reply_scores.append(0.0)
+                reply_scores.append(0.01)
         reply_score = sum(reply_scores) / len(reply_scores)
     else:
-        reply_score = 1.0  # no replies needed
+        reply_score = 0.99  # no replies needed
 
     # --- Archive correctness (20%) ---
     should_archive: set[str] = set()
@@ -390,10 +390,10 @@ def grade_hard(
     if should_archive:
         correctly_archived = len(archived_ids & should_archive)
         wrongly_archived = len(archived_ids & should_not_archive)
-        archive_score = correctly_archived / len(should_archive)
+        archive_score = (correctly_archived / len(should_archive) * 0.98 + 0.01)
         # Penalise wrong archives
         if wrongly_archived > 0:
-            archive_score = max(0.0, archive_score - wrongly_archived * 0.1)
+            archive_score = max(0.01, archive_score - wrongly_archived * 0.1)
     else:
         archive_score = 0.99
 

@@ -73,10 +73,10 @@ class EmailReward(BaseModel):
     """Reward signal returned after each step."""
 
     score: float = Field(
-        ..., ge=0.0, le=1.0, description="Overall score for the episode so far"
+        ..., gt=0.0, lt=1.0, description="Overall score for the episode so far (strictly between 0 and 1)"
     )
     partial_score: float = Field(
-        ..., ge=0.0, le=1.0, description="Progress score so far"
+        ..., gt=0.0, lt=1.0, description="Progress score so far (strictly between 0 and 1)"
     )
     breakdown: dict = Field(
         default_factory=dict, description="Per-criterion score breakdown"
