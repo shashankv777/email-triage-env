@@ -257,9 +257,11 @@ def run_task(client: OpenAI, http: httpx.Client, task_name: str) -> float:
             reward = (
                 reward_obj.get("final_score")
                 or reward_obj.get("cumulative_score")
-                or reward_obj.get("score", 0.0)
+                or reward_obj.get("score", 0.01)
             )
             reward = float(reward)
+            # Clamp to strictly between 0 and 1
+            reward = max(0.01, min(0.99, reward))
             rewards.append(reward)
             steps_taken = step
 
@@ -282,6 +284,8 @@ def run_task(client: OpenAI, http: httpx.Client, task_name: str) -> float:
         if not final_score and rewards:
             final_score = rewards[-1]
 
+        # Clamp final_score to strictly between 0 and 1
+        final_score = max(0.01, min(0.99, final_score))
         success = final_score >= SUCCESS_THRESHOLD
 
     except Exception as exc:
@@ -289,10 +293,12 @@ def run_task(client: OpenAI, http: httpx.Client, task_name: str) -> float:
         log_step(
             step=steps_taken + 1,
             action="error",
-            reward=0.0,
+            reward=0.01,
             done=True,
             error=str(exc),
         )
+        rewards.append(0.01)
+        final_score = 0.01  # Ensure final_score is set on exception
         print(f"[ERROR] task={task_name} {exc}", file=sys.stderr, flush=True)
 
     finally:
